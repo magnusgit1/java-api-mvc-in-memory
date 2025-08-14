@@ -1,6 +1,8 @@
 package com.booleanuk.api.products.model;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,38 +21,49 @@ public class ProductRepository {
         this.data.add(product3);
     }
 
-    public List<Product> findAll() {
+    public List<Product> findAll(String category) {
+        if (category != null && !category.isEmpty()){
+            List<Product> ls = this.data.stream().filter(n -> n.getCategory().equals(category)).toList();
+            if (ls.isEmpty()){
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No products of the provided category were found.");
+            }
+            return ls;
+        }
         return this.data;
     }
 
-    public List<Product> findAllBasedOnCategory(String category){
-        return this.data.stream().filter(n -> n.getCategory().equals(category)).toList();
-    }
-
     public Product find(int id) {
-        return this.data.stream()
-                .filter(product -> product.getId() == id)
-                .findFirst()
-                .orElseThrow();
+        List<Product> product = this.data.stream()
+                .filter(prod -> prod.getId() == id)
+                .toList();
+        if (product.isEmpty()){
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found.");
+        }
+        return product.getFirst();
     }
 
     public Product addProduct(Product product){
-        this.data.add(product);
-        return product;
+        if (data.stream().filter(it -> it.getName().equals(product.getName())).toList().isEmpty()){
+            this.data.add(product);
+            throw new ResponseStatusException(HttpStatus.CREATED, "Create a new product");
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product with provided name already exists.");
     }
 
-    public Product updateProduct(int id, Product newProduct){
+    public Product updateProduct(int id, String name){
         Product product = find(id);
-        if (product == null){
-            return null;
+        List<Product> existingProduct = data.stream().filter(it -> it.getName().equals(name)).toList();
+
+        if (!existingProduct.isEmpty()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product with provided name already exists.");
         }
-        product.setName(newProduct.getName());
-        product.setCategory(newProduct.getCategory());
-        product.setPrice(newProduct.getPrice());
-        return product;
+        product.setName(name);
+        throw new ResponseStatusException(HttpStatus.CREATED, "Product successfully updated.");
     }
 
     public boolean deleteProduct(int id){
-        return this.data.remove(data.get(id));
+        Product product = find(id);
+        this.data.remove(product);
+        throw new ResponseStatusException(HttpStatus.OK, "Product successfully deleted.");
     }
 }
